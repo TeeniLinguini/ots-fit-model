@@ -1,0 +1,933 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OTS Fit Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --curtain:#1a1a1c;
+    --curtain-2:#232326;
+    --gold:#c62f44;
+    --gold-bright:#df6353;
+    --velvet:#b42a38;
+    --paper:#f2f2f3;
+    --paper-dim:#b8b8bc;
+    --muted:#84848a;
+    --line:rgba(255,255,255,0.10);
+    --good:#7fae72;
+    --warn:#d99a4e;
+    --bad:#b25a4e;
+  }
+  body.light{
+    --curtain:#eef0f1;
+    --curtain-2:#ffffff;
+    --gold:#b42a38;
+    --gold-bright:#8f2029;
+    --velvet:#b42a38;
+    --paper:#1e1e20;
+    --paper-dim:#55555a;
+    --muted:#86868c;
+    --line:rgba(30,30,32,0.12);
+    --good:#4f7a3d;
+    --warn:#a66a1f;
+    --bad:#9c3f31;
+  }
+  html,body{transition:background-color .25s ease, color .25s ease;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--curtain);color:var(--paper);font-family:'IBM Plex Sans',sans-serif;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(180,42,56,0.07), transparent 60%),
+      var(--curtain);
+    min-height:100vh;
+    padding:48px 24px 80px;
+  }
+  .wrap{max-width:760px;margin:0 auto;}
+
+  .top-row{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;}
+
+  .theme-toggle{
+    flex-shrink:0;display:flex;align-items:center;gap:6px;
+    background:var(--curtain-2);border:1px solid var(--line);border-radius:999px;
+    padding:4px;cursor:pointer;
+  }
+  .theme-toggle button{
+    border:none;background:transparent;cursor:pointer;
+    width:30px;height:30px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--muted);transition:background .15s ease, color .15s ease;
+  }
+  .theme-toggle button svg{width:15px;height:15px;}
+  .theme-toggle button.active{background:var(--gold);color:var(--curtain);}
+
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;letter-spacing:0.18em;text-transform:uppercase;
+    color:var(--gold);margin-bottom:10px;
+  }
+  h1{
+    font-family:'Fraunces',serif;font-weight:600;font-optical-sizing:auto;
+    font-size:clamp(28px,4.5vw,42px);line-height:1.08;margin:0 0 10px;
+    color:var(--paper);
+  }
+  .sub{color:var(--paper-dim);font-size:15px;line-height:1.55;max-width:520px;margin:0 0 32px;}
+
+  .search-row{
+    display:flex;gap:10px;border:1px solid var(--line);background:var(--curtain-2);
+    border-radius:10px;padding:6px;
+  }
+  .search-row input{
+    flex:1;background:transparent;border:none;outline:none;color:var(--paper);
+    font-family:'IBM Plex Mono',monospace;font-size:14px;padding:12px 14px;
+  }
+  .search-row input::placeholder{color:var(--muted);}
+  .search-row button{
+    background:var(--gold);color:var(--curtain);border:none;border-radius:6px;
+    font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:14px;
+    padding:0 22px;cursor:pointer;transition:background .15s ease, transform .1s ease;
+  }
+  .search-row button:hover{background:var(--gold-bright);}
+  .search-row button:active{transform:scale(0.98);}
+  .search-row button:disabled{background:var(--muted);cursor:not-allowed;}
+
+  .hint{font-size:12px;color:var(--muted);margin-top:10px;font-family:'IBM Plex Mono',monospace;}
+
+  /* loading */
+  .loading{display:none;margin-top:48px;text-align:center;}
+  .loading.active{display:block;}
+  .curtain-rise{
+    width:64px;height:64px;margin:0 auto 18px;position:relative;
+    border-radius:50%;border:2px solid var(--line);
+  }
+  .curtain-rise::before{
+    content:'';position:absolute;inset:-2px;border-radius:50%;
+    border:2px solid transparent;border-top-color:var(--gold);
+    animation:spin 1s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading p{color:var(--paper-dim);font-family:'IBM Plex Mono',monospace;font-size:13px;}
+
+  .error{
+    display:none;margin-top:24px;padding:14px 16px;border-radius:8px;
+    background:rgba(178,90,78,0.12);border:1px solid rgba(178,90,78,0.4);
+    color:var(--paper);font-size:14px;
+  }
+  .error.active{display:block;}
+
+  /* results */
+  .results{display:none;margin-top:44px;}
+  .results.active{display:block;animation:reveal .5s ease both;}
+  @keyframes reveal{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+  .divider{
+    border:none;border-top:1px solid rgba(138,127,107,0.5);
+    margin:28px 0;
+  }
+
+  .model-box{
+    display:flex;flex-direction:column;gap:0;
+    background:var(--curtain-2);border:1px solid var(--line);border-radius:10px;
+    padding:24px 26px 28px;margin-bottom:28px;
+  }
+  .model-box .mini-quadrant-wrap{position:relative;width:100%;max-width:420px;margin:22px auto 0;}
+  .model-box .mini-quadrant-wrap::before{content:'';display:block;padding-top:88.24%;}
+  .model-box .mini-quadrant{position:absolute;top:0;left:0;width:100%;height:100%;display:block;}
+  .model-box-title{
+    font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;
+    color:var(--gold);margin-bottom:10px;
+  }
+  .model-box-sub{font-size:14.5px;color:var(--paper-dim);line-height:1.65;margin-bottom:20px;max-width:640px;}
+  .model-legend{display:grid;grid-template-columns:1fr 1fr;gap:16px 26px;}
+  .model-legend-item{display:flex;gap:11px;align-items:flex-start;}
+  .model-legend-dot{flex-shrink:0;width:11px;height:11px;border-radius:50%;margin-top:5px;}
+  .model-legend-item .t{font-size:15px;color:var(--paper);font-weight:500;margin-bottom:2px;}
+  .model-legend-item .d{font-size:13.5px;color:var(--paper-dim);line-height:1.55;}
+
+  .accordion-toggle{
+    display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+    margin-top:22px;background:transparent;border:1px solid var(--line);border-radius:8px;
+    color:var(--gold);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;
+    text-transform:uppercase;padding:12px 16px;cursor:pointer;transition:border-color .15s ease, background .15s ease;
+  }
+  .accordion-toggle:hover{border-color:var(--gold);background:rgba(180,42,56,0.06);}
+  .accordion-toggle svg{width:13px;height:13px;transition:transform .25s ease;}
+  .accordion-toggle.open svg{transform:rotate(180deg);}
+
+  .accordion-panel{max-height:0;overflow:hidden;transition:max-height .3s ease;}
+
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;padding-top:20px;}
+  @media (max-width:560px){.detail-grid{grid-template-columns:1fr;}}
+  .detail-col-title{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;
+    margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line);
+  }
+  .detail-col-title.fit{color:var(--gold);}
+  .detail-col-title.prop{color:var(--gold);}
+  .detail-item{padding:11px 0;border-bottom:1px solid rgba(128,128,128,0.14);}
+  .detail-item:last-child{border-bottom:none;}
+  .detail-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .detail-name{font-size:13.5px;color:var(--paper);font-weight:500;}
+  .detail-range{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--gold);flex-shrink:0;}
+  .detail-def{font-size:12.5px;color:var(--paper-dim);line-height:1.55;margin-top:4px;}
+  .detail-note{
+    margin-top:16px;padding-top:14px;border-top:1px solid var(--line);
+    font-size:12px;color:var(--muted);line-height:1.6;
+  }
+
+  .detail-subhead{
+    font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;
+    color:var(--muted);margin:16px 0 4px;padding-top:14px;border-top:1px dashed var(--line);
+  }
+  .detail-item.future{opacity:0.62;}
+  .detail-item.future .detail-name{text-decoration:line-through;color:var(--muted);}
+  .detail-item.future .detail-range{color:var(--muted);font-style:italic;}
+
+  .info-box{
+    display:flex;gap:12px;background:rgba(180,42,56,0.08);
+    border:1px solid rgba(180,42,56,0.3);border-radius:10px;
+    padding:16px 18px;margin-bottom:28px;font-size:13px;line-height:1.65;color:var(--paper-dim);
+  }
+  .info-box svg{flex-shrink:0;width:18px;height:18px;color:var(--gold);margin-top:1px;}
+  .info-box strong{color:var(--paper);}
+
+  .forward-btn{
+    display:none;align-items:center;gap:6px;background:transparent;
+    border:1px solid var(--line);color:var(--paper-dim);border-radius:999px;
+    padding:7px 10px 7px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;
+    cursor:pointer;margin-top:12px;transition:border-color .15s ease, color .15s ease;
+  }
+  .forward-btn.visible{display:inline-flex;}
+  .forward-btn:hover{border-color:var(--gold);color:var(--gold);}
+  .forward-btn svg{width:13px;height:13px;}
+
+  .back-btn{
+    display:inline-flex;align-items:center;gap:6px;background:transparent;
+    border:1px solid var(--line);color:var(--paper-dim);border-radius:999px;
+    padding:7px 14px 7px 10px;font-family:'IBM Plex Mono',monospace;font-size:12px;
+    cursor:pointer;margin-bottom:22px;transition:border-color .15s ease, color .15s ease;
+  }
+  .back-btn:hover{border-color:var(--gold);color:var(--gold);}
+  .back-btn svg{width:13px;height:13px;}
+
+  .venue-head{padding-bottom:24px;border-bottom:1px solid var(--line);margin-bottom:28px;}
+  .venue-name{font-family:'Fraunces',serif;font-size:26px;font-weight:600;color:var(--paper);margin:0 0 4px;}
+  .venue-meta{font-size:13px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+
+  .score-row{display:flex;justify-content:center;gap:14px;margin-top:22px;flex-wrap:wrap;}
+  .score-badge{
+    min-width:120px;padding:14px 22px;border-radius:14px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border:2px solid var(--gold);
+  }
+  .score-badge .num{font-family:'Fraunces',serif;font-size:30px;font-weight:700;color:var(--gold-bright);line-height:1;}
+  .score-badge .lbl{font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-top:4px;}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px;}
+  @media (max-width:560px){.grid{grid-template-columns:1fr;}}
+  .card{
+    background:var(--curtain-2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;
+  }
+  .source-link{font-size:11px;color:var(--gold);text-decoration:none;white-space:nowrap;}
+  .source-link:hover{text-decoration:underline;color:var(--gold-bright);}
+
+  .card .k{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;
+    text-transform:uppercase;color:var(--gold);margin-bottom:8px;}
+  .card .v{font-size:15px;color:var(--paper);line-height:1.5;}
+  .card .v .dim{color:var(--paper-dim);font-size:13px;display:block;margin-top:3px;}
+
+  .section{margin-bottom:26px;}
+  .section h3{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line);
+  }
+  .signal-list{list-style:none;margin:0;padding:0;}
+  .signal-list li{
+    display:flex;gap:10px;padding:9px 0;font-size:14px;line-height:1.5;color:var(--paper-dim);
+    border-bottom:1px solid rgba(128,128,128,0.14);
+  }
+  .signal-list li:last-child{border-bottom:none;}
+  .dot{flex-shrink:0;width:7px;height:7px;border-radius:50%;margin-top:6px;}
+  .dot.good{background:var(--good);}
+  .dot.warn{background:var(--warn);}
+  .dot.bad{background:var(--bad);}
+
+  .quadrant-wrap{margin-bottom:18px;}
+  .quadrant-svg{width:100%;max-width:420px;height:auto;display:block;margin:0 auto;}
+
+  .breakdown-section{margin-top:2px;}
+  .breakdown-item{padding:9px 0;border-bottom:1px solid rgba(128,128,128,0.14);}
+  .breakdown-item:last-child{border-bottom:none;}
+  .breakdown-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;gap:8px;}
+  .breakdown-cat{font-size:13px;color:var(--paper);font-weight:500;}
+  .breakdown-score{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--gold);flex-shrink:0;}
+  .breakdown-bar-track{height:5px;border-radius:3px;background:var(--line);overflow:hidden;margin-bottom:6px;}
+  .breakdown-bar-fill{height:100%;border-radius:3px;background:var(--gold);}
+  .breakdown-reason{font-size:12.5px;color:var(--paper-dim);line-height:1.5;}
+
+  .verdict{
+    background:linear-gradient(135deg, rgba(180,42,56,0.10), rgba(223,99,83,0.08));
+    border:1px solid var(--line);border-radius:10px;padding:18px 20px;font-size:14.5px;
+    line-height:1.6;color:var(--paper);
+  }
+  .verdict strong{color:var(--gold-bright);}
+
+  .footnote{margin-top:28px;font-size:12px;color:var(--muted);line-height:1.6;
+    font-family:'IBM Plex Mono',monospace;border-top:1px solid var(--line);padding-top:16px;}
+</style>
+</head>
+<body class="light">
+<div class="wrap">
+  <div class="top-row">
+    <div>
+      <div class="eyebrow">Example Model</div>
+      <h1>OTS Fit Model</h1>
+    </div>
+    <div class="theme-toggle" id="themeToggle">
+      <button id="darkBtn" title="Dark mode" aria-label="Dark mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <button id="lightBtn" class="active" title="Light mode" aria-label="Light mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      </button>
+    </div>
+  </div>
+  <p class="sub">Paste a theatre, venue, or performing arts org's website.</p>
+
+  <div class="search-row">
+    <input id="urlInput" type="text" placeholder="e.g. https://www.ashlandproductions.org/" />
+    <button id="goBtn">Assess</button>
+  </div>
+  <div class="hint">Works best with the venue's own homepage or season/tickets page.</div>
+  <button class="forward-btn" id="forwardBtn">
+    <span>Forward to last result</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+  </button>
+
+  <hr class="divider">
+
+  <div class="info-box">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    <div>
+      Assessment is built from public web search, not a direct site crawl. Tech stack, capacity figures, and contact details are pulled from what's publicly indexed and may be incomplete or out of date leveraging Anthropic's web-search function. Contact info reflects only what has been published publicly.
+    </div>
+  </div>
+
+  <div class="model-box" id="modelBox">
+    <div>
+      <div class="model-box-title">Fit and Propensity Model</div>
+      <div class="model-box-sub"><strong style="color:var(--paper);">Fit</strong> (x-axis) is structural: house size, location, org structure, concessions potential, and any account relationship to an existing OTS customer.<br><br><strong style="color:var(--paper);">Propensity</strong> (y-axis) is timing: growing seasons, new stages, capital campaigns, hiring, and signs of frustration with their current tools. Together they place a venue in one of four zones:</div>
+      <div class="model-legend">
+        <div class="model-legend-item">
+          <span class="model-legend-dot" style="background:var(--good);"></span>
+          <div><div class="t">Priority now</div><div class="d">High fit, high propensity. Reach out.</div></div>
+        </div>
+        <div class="model-legend-item">
+          <span class="model-legend-dot" style="background:var(--warn);"></span>
+          <div><div class="t">Opportunistic</div><div class="d">Low fit, high propensity. Worth a lighter touch.</div></div>
+        </div>
+        <div class="model-legend-item">
+          <span class="model-legend-dot" style="background:var(--warn);"></span>
+          <div><div class="t">Nurture</div><div class="d">High fit, low propensity. Good account, wrong time.</div></div>
+        </div>
+        <div class="model-legend-item">
+          <span class="model-legend-dot" style="background:var(--bad);"></span>
+          <div><div class="t">Deprioritize</div><div class="d">Low fit, low propensity. Not worth the effort yet.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="mini-quadrant-wrap">
+    <svg class="mini-quadrant" width="100%" height="100%" viewBox="0 0 340 300" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+      <rect x="170" y="20" width="150" height="130" fill="var(--good)" fill-opacity="0.12"/>
+      <rect x="20" y="20" width="150" height="130" fill="var(--warn)" fill-opacity="0.10"/>
+      <rect x="170" y="150" width="150" height="130" fill="var(--warn)" fill-opacity="0.08"/>
+      <rect x="20" y="150" width="150" height="130" fill="var(--bad)" fill-opacity="0.10"/>
+      <line x1="20" y1="150" x2="320" y2="150" stroke="var(--line)" stroke-width="1.5"/>
+      <line x1="170" y1="20" x2="170" y2="280" stroke="var(--line)" stroke-width="1.5"/>
+      <rect x="20" y="20" width="300" height="260" fill="none" stroke="var(--line)" stroke-width="1.5"/>
+      <text x="304" y="45" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600" letter-spacing="0.5" fill="var(--good)">PRIORITY NOW</text>
+      <text x="36" y="45" text-anchor="start" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600" letter-spacing="0.5" fill="var(--warn)">OPPORTUNISTIC</text>
+      <text x="304" y="264" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600" letter-spacing="0.5" fill="var(--warn)">NURTURE</text>
+      <text x="36" y="264" text-anchor="start" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600" letter-spacing="0.5" fill="var(--bad)">DEPRIORITIZE</text>
+      <text x="170" y="297" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="13" letter-spacing="1" fill="var(--paper-dim)">FIT →</text>
+      <text x="6" y="150" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="13" letter-spacing="1" fill="var(--paper-dim)" transform="rotate(-90 6,150)">PROPENSITY →</text>
+    </svg>
+    </div>
+
+    <button class="accordion-toggle" id="detailsToggle">
+      <span>Fit and Propensity Details</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="accordion-panel" id="detailsPanel">
+      <div class="detail-grid">
+        <div>
+          <div class="detail-col-title fit">Fit: structural, 5 × 0–20</div>
+          <div class="detail-item">
+            <div class="detail-top"><span class="detail-name">House &amp; Venue Size</span><span class="detail-range">0–20</span></div>
+            <div class="detail-def">How well seating capacity and scale match OTS's sub-enterprise ideal customer profile. Best fit is small-to-mid: not arena-scale, not a single-room space with negligible capacity.</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-top"><span class="detail-name">Location &amp; Market</span><span class="detail-range">0–20</span></div>
+            <div class="detail-def">How favorable the market and location context looks for OTS: a region with performing arts density, with no indication of being an outlier location that complicates service.</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-top"><span class="detail-name">Org Structure &amp; Scale Fit</span><span class="detail-range">0–20</span></div>
+            <div class="detail-def">Nonprofit, school, or community structure at sub-enterprise scale that does not require enterprise-grade donor/CRM tooling. Scored low if the org clearly needs enterprise donation management.</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-top"><span class="detail-name">Concessions &amp; Merch Potential</span><span class="detail-range">0–20</span></div>
+            <div class="detail-def">Evidence the venue sells or could sell concessions or merchandise alongside tickets, the area where OTS beats consumer tools like Eventbrite.</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-top"><span class="detail-name">Account Relationship</span><span class="detail-range">0–20</span></div>
+            <div class="detail-def">Evidence of a parent organization, sibling venue, or affiliated entity that is already an OTS customer. Scored 10 (neutral) when no such relationship is found.</div>
+          </div>
+
+          <div class="detail-subhead">Not yet scored: future signals</div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Years in Operation / Organizational Age</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">Proxy for stability and survivorship.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Union Status (Equity vs. Non-Equity)</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">Correlates with budget tier and production scale. Direction unclear, may cut against fit if it signals a larger touring-scale house OTS isn't built for.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Programming Genre</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">Musicals, straight plays, dance, opera: merch and concessions potential varies a lot by genre.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Owned vs. Leased Venue</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">Owned space suggests a more stable, longer-horizon vendor decision.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Donor Base Size &amp; Earned-Revenue Ratio</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">From Form 990 filings. Signals fundraising sophistication. Direction unclear, may cut against fit since OTS isn't a strong enterprise donor management platform.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Full-Time Staff vs. Volunteer-Run</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">Operational capacity to actually onboard new software.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Industry Association Membership</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">Theatre Communications Group, League of Regional Theatres, state community theatre associations. A proxy for professionalism tier.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">ADA Accessibility Investment</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">Visible on site; correlates with institutional maturity.</div>
+          </div>
+        </div>
+        <div>
+          <div class="detail-col-title prop">Propensity: timing, 5 × 0–20</div>
+          <div class="detail-item">
+            <div class="detail-top"><span class="detail-name">Season &amp; Show Growth</span><span class="detail-range">0–20</span></div>
+            <div class="detail-def">Evidence of an increasing number of shows or an expanding season year over year.</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-top"><span class="detail-name">Stage / Venue Expansion</span><span class="detail-range">0–20</span></div>
+            <div class="detail-def">Evidence of a new or additional stage, second performance space, or physical expansion.</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-top"><span class="detail-name">Capital Campaign &amp; Press Momentum</span><span class="detail-range">0–20</span></div>
+            <div class="detail-def">Evidence of a capital campaign, renovation, groundbreaking, or notable positive press coverage suggesting momentum.</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-top"><span class="detail-name">Hiring Signals</span><span class="detail-range">0–20</span></div>
+            <div class="detail-def">Evidence of relevant hiring (box office, patron services, general manager, marketing) suggesting growth.</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-top"><span class="detail-name">Tooling Pain / Switching Signal</span><span class="detail-range">0–20</span></div>
+            <div class="detail-def">Evidence of frustration with their current platform, a recent or rumored platform switch, or public complaints about ticketing/box office limitations.</div>
+          </div>
+
+          <div class="detail-subhead">Not yet scored: leading indicators</div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">RFP or Bid Solicitation for Ticketing Software</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">About as leading as it gets: a direct, active buying signal.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Job Postings Naming a Competitor Tool</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">For example, "experience with Spektrix/Tessitura a plus" tells you what they're using or want to replace.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">New Executive/Artistic Director Hire</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">Leadership changes are a classic vendor re-evaluation trigger.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Recent Website Redesign or Rebrand</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">Signals an active investment cycle and willingness to change tools.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">New Board Members, Tech/Marketing/Ops Background</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">Often precedes a push to modernize.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Recently Announced Grant Awards</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">State arts council, NEA, foundation. New funding creates new tooling budget.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Newly Launched Membership/Subscription Program</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">A new revenue model that often outgrows spreadsheets fast.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Rising Social Posting Frequency / Follower Growth</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">General momentum proxy.</div>
+          </div>
+
+          <div class="detail-subhead">Not yet scored: lagging indicators</div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Multi-Year Box Office/Program Revenue Trend</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">From Form 990 filings.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Multi-Year Attendance Trend</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">If published in annual reports.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Completed Season Show-Count Trend (3–5 Yrs)</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">Distinct from "announced expansion," which is leading. This confirms growth that already happened.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Box Office/Patron Services Staff Turnover</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">High turnover can be a lagging signal of operational strain.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Grant Funding Trend Over Time</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">Growing or shrinking, tracked across multiple award cycles.</div>
+          </div>
+          <div class="detail-item future">
+            <div class="detail-top"><span class="detail-name">Public Review Sentiment Trend</span><span class="detail-range">Future</span></div>
+            <div class="detail-def">Google/Yelp mentions of ticketing frustration, increasing or decreasing over time.</div>
+          </div>
+        </div>
+      </div>
+      <div class="detail-note">
+        Each category is scored by the model against these definitions, using public web search as its only source. A category defaults to 10 (neutral) when there isn't enough public evidence to score it confidently either way, rather than guessing toward an extreme. The two axis totals (each 0–100) are then summed in code from these ten scores, not assigned as a single holistic number, so every point on the quadrant traces back to a specific, visible reason. Struck-through items above are documented for the roadmap but are not collected or scored yet.
+      </div>
+    </div>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="curtain-rise"></div>
+    <p id="loadingText">Researching the venue…</p>
+  </div>
+
+  <div class="error" id="errorBox"></div>
+
+  <div class="results" id="results"></div>
+</div>
+
+<script>
+const darkBtn = document.getElementById('darkBtn');
+const lightBtn = document.getElementById('lightBtn');
+
+function setTheme(mode){
+  document.body.classList.toggle('light', mode === 'light');
+  darkBtn.classList.toggle('active', mode === 'dark');
+  lightBtn.classList.toggle('active', mode === 'light');
+}
+darkBtn.addEventListener('click', () => setTheme('dark'));
+lightBtn.addEventListener('click', () => setTheme('light'));
+
+const detailsToggle = document.getElementById('detailsToggle');
+const detailsPanel = document.getElementById('detailsPanel');
+detailsToggle.addEventListener('click', () => {
+  const isOpen = detailsToggle.classList.toggle('open');
+  if(isOpen){
+    detailsPanel.style.maxHeight = detailsPanel.scrollHeight + 'px';
+  }else{
+    detailsPanel.style.maxHeight = '0px';
+  }
+});
+
+const urlInput = document.getElementById('urlInput');
+const goBtn = document.getElementById('goBtn');
+const forwardBtn = document.getElementById('forwardBtn');
+const loading = document.getElementById('loading');
+const loadingText = document.getElementById('loadingText');
+const errorBox = document.getElementById('errorBox');
+const results = document.getElementById('results');
+const modelBox = document.getElementById('modelBox');
+
+let lastResultsData = null;
+
+forwardBtn.addEventListener('click', () => {
+  if(!lastResultsData) return;
+  render(lastResultsData);
+  window.scrollTo({ top: results.offsetTop - 20, behavior: 'smooth' });
+});
+
+const loadingMessages = [
+  "Researching the venue…",
+  "Checking season and show cadence…",
+  "Looking for a second stage…",
+  "Sniffing out the ticketing stack…",
+  "Sizing up the house…"
+];
+
+function cycleLoadingText(){
+  let i = 0;
+  return setInterval(()=>{
+    i = (i+1) % loadingMessages.length;
+    loadingText.textContent = loadingMessages[i];
+  }, 1800);
+}
+
+function scoreColor(score){
+  if(score >= 65) return 'good';
+  if(score >= 40) return 'warn';
+  return 'bad';
+}
+
+function colorVarFor(sc){
+  return sc === 'good' ? 'var(--good)' : sc === 'warn' ? 'var(--warn)' : 'var(--bad)';
+}
+
+function dotClass(sentiment){
+  if(sentiment === 'positive') return 'good';
+  if(sentiment === 'negative') return 'bad';
+  return 'warn';
+}
+
+function sumBreakdown(arr){
+  return (arr || []).reduce((s, i) => s + (Number(i.score) || 0), 0);
+}
+
+function srcLink(url){
+  if(!url) return '';
+  return ` <a href="${url}" target="_blank" rel="noopener noreferrer" class="source-link">(source)</a>`;
+}
+
+function buildBreakdownList(arr){
+  return (arr || []).map(item => {
+    const pct = Math.max(0, Math.min(100, ((Number(item.score) || 0) / 20) * 100));
+    return `
+      <div class="breakdown-item">
+        <div class="breakdown-top">
+          <span class="breakdown-cat">${item.category}</span>
+          <span class="breakdown-score">${item.score ?? 0}/20</span>
+        </div>
+        <div class="breakdown-bar-track"><div class="breakdown-bar-fill" style="width:${pct}%"></div></div>
+        <div class="breakdown-reason">${item.reasoning || ''}${srcLink(item.source)}</div>
+      </div>`;
+  }).join('') || `<div class="breakdown-item"><div class="breakdown-reason">No data returned for this axis.</div></div>`;
+}
+
+function buildQuadrantChart(fitScore, propScore, venueName){
+  const left = 46, right = 286, top = 14, bottom = 226;
+  const midX = (left + right) / 2, midY = (top + bottom) / 2;
+  const px = left + (fitScore / 100) * (right - left);
+  const py = bottom - (propScore / 100) * (bottom - top);
+
+  return `
+  <svg class="quadrant-svg" viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg">
+    <rect x="${midX}" y="${top}" width="${right-midX}" height="${midY-top}" fill="var(--good)" fill-opacity="0.08"/>
+    <rect x="${left}" y="${top}" width="${midX-left}" height="${midY-top}" fill="var(--warn)" fill-opacity="0.07"/>
+    <rect x="${midX}" y="${midY}" width="${right-midX}" height="${bottom-midY}" fill="var(--warn)" fill-opacity="0.05"/>
+    <rect x="${left}" y="${midY}" width="${midX-left}" height="${bottom-midY}" fill="var(--bad)" fill-opacity="0.07"/>
+
+    <text x="${right-6}" y="${top+16}" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="8.5" letter-spacing="0.5" fill="var(--good)">PRIORITY NOW</text>
+    <text x="${left+6}" y="${top+16}" text-anchor="start" font-family="IBM Plex Mono, monospace" font-size="8.5" letter-spacing="0.5" fill="var(--warn)">OPPORTUNISTIC</text>
+    <text x="${right-6}" y="${bottom-8}" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="8.5" letter-spacing="0.5" fill="var(--warn)">NURTURE</text>
+    <text x="${left+6}" y="${bottom-8}" text-anchor="start" font-family="IBM Plex Mono, monospace" font-size="8.5" letter-spacing="0.5" fill="var(--bad)">DEPRIORITIZE</text>
+
+    <line x1="${left}" y1="${midY}" x2="${right}" y2="${midY}" stroke="var(--line)" stroke-width="1"/>
+    <line x1="${midX}" y1="${top}" x2="${midX}" y2="${bottom}" stroke="var(--line)" stroke-width="1"/>
+    <rect x="${left}" y="${top}" width="${right-left}" height="${bottom-top}" fill="none" stroke="var(--line)" stroke-width="1"/>
+
+    <text x="${left}" y="${bottom+18}" font-family="IBM Plex Mono, monospace" font-size="9" fill="var(--muted)">0</text>
+    <text x="${midX}" y="${bottom+18}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="var(--muted)">50</text>
+    <text x="${right}" y="${bottom+18}" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="9" fill="var(--muted)">100</text>
+    <text x="${(left+right)/2}" y="${bottom+32}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="1" fill="var(--paper-dim)">FIT →</text>
+
+    <text x="${left-8}" y="${bottom+4}" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="9" fill="var(--muted)">0</text>
+    <text x="${left-8}" y="${midY+3}" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="9" fill="var(--muted)">50</text>
+    <text x="${left-8}" y="${top+4}" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="9" fill="var(--muted)">100</text>
+    <text x="14" y="${(top+bottom)/2}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="1" fill="var(--paper-dim)" transform="rotate(-90 14,${(top+bottom)/2})">PROPENSITY →</text>
+
+    <circle cx="${px}" cy="${py}" r="15" fill="var(--gold)" fill-opacity="0.22"/>
+    <circle cx="${px}" cy="${py}" r="7" fill="var(--gold-bright)" stroke="var(--curtain)" stroke-width="2"/>
+    <text x="${px}" y="${py - 20 < top ? py + 26 : py - 14}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="var(--paper)">${fitScore}, ${propScore}</text>
+  </svg>`;
+}
+
+function render(data){
+  lastResultsData = data;
+  forwardBtn.classList.remove('visible');
+  modelBox.style.display = 'none';
+  const fg = data.firmographics || {};
+  const hp = data.history_pov || {};
+  const ct = data.contact || {};
+
+  const fitScore = sumBreakdown(data.fit_breakdown);
+  const propScore = sumBreakdown(data.propensity_breakdown);
+  const fitColorVar = colorVarFor(scoreColor(fitScore));
+  const propColorVar = colorVarFor(scoreColor(propScore));
+
+  const switchItems = (data.switch_rationale || []).map(s =>
+    `<li><span class="dot good"></span><span>${s.text || s}${srcLink(s.source)}</span></li>`
+  ).join('') || `<li><span class="dot warn"></span><span>Not enough public information to build a specific switch rationale.</span></li>`;
+
+  results.innerHTML = `
+    <button class="back-btn" id="backBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Back to search
+    </button>
+    <div class="venue-head">
+      <div>
+        <div class="venue-name">${data.venue_name || 'Unknown venue'}</div>
+        <div class="venue-meta">${data.venue_type || 'Venue type unclear'}${data.location ? ' · ' + data.location : ''}</div>
+      </div>
+      <div class="score-row">
+        <div class="score-badge" style="border-color:${fitColorVar}">
+          <div class="num" style="color:${fitColorVar}">${fitScore}</div>
+          <div class="lbl">Fit</div>
+        </div>
+        <div class="score-badge" style="border-color:${propColorVar}">
+          <div class="num" style="color:${propColorVar}">${propScore}</div>
+          <div class="lbl">Propensity</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Fit vs. growth propensity</h3>
+      <div class="quadrant-wrap">
+        ${buildQuadrantChart(fitScore, propScore, data.venue_name)}
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="k" style="text-transform:none;">Fit Breakdown</div>
+          <div class="breakdown-section">${buildBreakdownList(data.fit_breakdown)}</div>
+        </div>
+        <div class="card">
+          <div class="k" style="text-transform:none;">Propensity Breakdown</div>
+          <div class="breakdown-section">${buildBreakdownList(data.propensity_breakdown)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Firmographics</h3>
+      <div class="grid">
+        <div class="card">
+          <div class="k">Website</div>
+          <div class="v">${fg.website || 'Not found'}</div>
+        </div>
+        <div class="card">
+          <div class="k">Address</div>
+          <div class="v">${fg.address || 'Not found'}${srcLink(fg.source)}</div>
+        </div>
+        <div class="card">
+          <div class="k">City / State / Zip</div>
+          <div class="v">${[fg.city, fg.state, fg.zip].filter(Boolean).join(', ') || 'Not found'}${srcLink(fg.source)}</div>
+        </div>
+        <div class="card">
+          <div class="k">County</div>
+          <div class="v">${fg.county || 'Not found'}${srcLink(fg.source)}</div>
+        </div>
+        <div class="card">
+          <div class="k">Software / ticketing system</div>
+          <div class="v">${fg.software_stack || 'Not detectable from public sources'}${srcLink(fg.software_source)}
+            ${data.tech_confidence ? `<span class="dim">Confidence: ${data.tech_confidence}</span>` : ''}
+          </div>
+        </div>
+        <div class="card">
+          <div class="k">Org structure</div>
+          <div class="v">${data.org_structure || 'Unclear'}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Cliffnotes history &amp; POV</h3>
+      <div class="card">
+        <div class="k">History</div>
+        <div class="v" style="margin-bottom:14px;">${hp.history_summary || 'Not enough public information to summarize.'}${srcLink(hp.source)}</div>
+        <div class="k">Point of view / mission</div>
+        <div class="v">${hp.pov_summary || 'No distinct point of view found. Appears to be a general-mission venue.'}${srcLink(hp.source)}</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="k">House size</div>
+        <div class="v">${data.house_size || 'Unclear'}${srcLink(data.house_size_source)}
+          ${data.stage_count ? `<span class="dim">${data.stage_count}</span>` : ''}
+        </div>
+      </div>
+      <div class="card">
+        <div class="k">Season cadence</div>
+        <div class="v">${data.season_cadence || 'Unclear'}${srcLink(data.season_cadence_source)}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Contact information</h3>
+      <div class="grid">
+        <div class="card">
+          <div class="k">Main phone</div>
+          <div class="v">${ct.phone || 'Not found'}${srcLink(ct.source)}</div>
+        </div>
+        <div class="card">
+          <div class="k">General / box office email</div>
+          <div class="v">${ct.email || 'Not found'}${srcLink(ct.source)}</div>
+        </div>
+      </div>
+    </div>
+
+    ${data.champion_leads && data.champion_leads.length ? `
+    <div class="section">
+      <h3>Key people</h3>
+      <ul class="signal-list">
+        ${data.champion_leads.map(c => `
+          <li>
+            <span class="dot warn"></span>
+            <span>
+              <strong style="color:var(--paper)">${c.name || 'Name not found'}</strong>${c.title ? ', ' + c.title : ''}${srcLink(c.source)}
+              ${(c.email || c.phone) ? `<span class="dim">${[c.email, c.phone].filter(Boolean).join(' · ')}</span>` : ''}
+            </span>
+          </li>`).join('')}
+      </ul>
+    </div>` : ''}
+
+    <div class="section">
+      <h3>Why they should switch to OTS</h3>
+      <ul class="signal-list">${switchItems}</ul>
+    </div>
+
+    <div class="verdict"><strong>Verdict:</strong> ${data.verdict}</div>
+  `;
+
+  results.classList.add('active');
+
+  document.getElementById('backBtn').addEventListener('click', () => {
+    results.classList.remove('active');
+    results.innerHTML = '';
+    urlInput.value = '';
+    modelBox.style.display = '';
+    if(lastResultsData){ forwardBtn.classList.add('visible'); }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    urlInput.focus();
+  });
+}
+
+async function assess(){
+  const rawUrl = urlInput.value.trim();
+  if(!rawUrl){ return; }
+
+  errorBox.classList.remove('active');
+  results.classList.remove('active');
+  results.innerHTML = '';
+  forwardBtn.classList.remove('visible');
+  modelBox.style.display = 'none';
+  loading.classList.add('active');
+  goBtn.disabled = true;
+  const tick = cycleLoadingText();
+
+  const prompt = `You are researching a performing arts venue or theatre organization for a B2B sales fit assessment. The company doing the assessment is On The Stage (OTS), a ticketing/box-office/fundraising/marketing platform for small-to-mid performing arts organizations (community theatres, school/university theatre programs, dance studios, regional theatres, small music venues). OTS is NOT enterprise ticketing and does NOT do enterprise donation management, but it beats consumer tools like Eventbrite for orgs with repeatable seasons, seating, and concessions/merch upside.
+
+Research this venue using web search: "${rawUrl}"
+
+Find and assess:
+1. Venue name, type, and general location (city/region level)
+2. Firmographics: official website URL, street address, city, state, zip code, and county. Use "Not found" equivalent (omit) for anything not publicly available. Do not guess or construct an address. Include the specific URL where you found the address/location details as "source".
+3. Software / ticketing system currently in use (look for "powered by", ticketing widget branding, "tickets" page footer credits, or named platforms like Eventbrite, Vendini, ShowClix, Ovation, Spektrix, Tessitura, AudienceView, or On The Stage itself), plus a confidence level for that read, and the specific URL where you found this as "software_source"
+4. Org structure (nonprofit/501c3, school program, for-profit, community volunteer-run, etc.)
+5. Cliffnotes history: 2-4 sentence plain-language summary of the organization's founding and background, with the URL you drew it from
+6. Point of view / mission: does this venue have a distinct artistic point of view or programming focus (e.g. exclusively new works, female or BIPOC playwrights, youth theatre, a specific genre)? Or is their mission and programming general/undifferentiated? State clearly which it is.
+7. House size / seating capacity (approximate if exact figure unavailable), with the source URL
+8. Number of distinct stages or performance spaces
+9. Season cadence (how many shows/productions per year, is it a recurring season), with the source URL
+10. Possible champions: any named staff (Executive Director, Box Office Manager, Theatre Director, Marketing/Patron Services lead, General Manager) findable via public search. For each, include name, title, email/phone ONLY if publicly listed, and the URL where you found them. Do not guess or construct email addresses that aren't explicitly published.
+11. Contact information: the organization's main phone number and general or box office email, as published on their site or public listings, with the source URL. Do not fabricate; omit if not publicly available.
+12. Switch rationale: 2-4 specific, evidence-based reasons this particular venue should consider switching to OTS, grounded in what you actually found (e.g. their current platform's known limitations, their growth trajectory creating urgency, their concessions/merch upside being underserved by their current tool). Avoid generic OTS marketing language; tie each reason to something specific about this venue, and cite the URL backing each reason where one exists.
+13. A one-to-two sentence verdict summarizing the overall read
+
+For every fact above, if it came from a specific webpage, include that page's URL in the matching "source" field. If a fact is a general impression, an estimate, or has no single supporting page, leave that source field as an empty string rather than guessing or inventing a URL.
+
+Then score this venue on TWO SEPARATE axes. Each axis has exactly 5 categories, each scored 0-20 (integer), so each axis totals 0-100. Do not do the math yourself. Just return the per-category scores, a one-sentence evidence-based reasoning for each, and the source URL that reasoning is drawn from (empty string if the score is a neutral default with no supporting evidence). Score 10 as a neutral default when there isn't enough public evidence either way; don't guess toward extremes without evidence.
+
+FIT AXIS (structural: is this the right kind of account, independent of timing):
+- "House & Venue Size": 0-20, how well the seating capacity and scale match OTS's sub-enterprise ideal customer profile (best fit is small-to-mid, not arena-scale, not a single-room black box with negligible capacity)
+- "Location & Market": 0-20, how favorable the market/location context looks for OTS (region with performing arts density, no evidence of being an outlier location that complicates service)
+- "Org Structure & Scale Fit": 0-20, nonprofit/school/community structure and sub-enterprise scale that does NOT require enterprise donation management; score low if they clearly need enterprise-grade donor/CRM tooling
+- "Concessions & Merch Potential": 0-20, evidence the venue sells or could sell concessions/merch alongside tickets, which is where OTS beats Eventbrite
+- "Account Relationship": 0-20, evidence of a parent organization, sibling venue, affiliated school district, or related entity that is already an OTS customer or otherwise creates an easier path in; score 10 (neutral) if no such relationship is found or determinable
+
+PROPENSITY AXIS (timing: is now a compelling moment to reach out):
+- "Season & Show Growth": 0-20, evidence of an increasing number of shows or an expanding season year over year
+- "Stage / Venue Expansion": 0-20, evidence of a new or additional stage, second performance space, or physical expansion
+- "Capital Campaign & Press Momentum": 0-20, evidence of a capital campaign, renovation, groundbreaking, or notable positive press coverage suggesting momentum
+- "Hiring Signals": 0-20, evidence of relevant hiring (box office, patron services, general manager, marketing) suggesting growth
+- "Tooling Pain / Switching Signal": 0-20, evidence of frustration with their current platform, a recent or rumored platform switch, or public complaints about ticketing/box office limitations
+
+Respond with ONLY valid JSON, no markdown formatting, no code fences, no preamble. Use exactly this schema:
+{
+  "venue_name": string,
+  "venue_type": string,
+  "location": string,
+  "firmographics": {"website": string, "address": string, "city": string, "state": string, "zip": string, "county": string, "software_stack": string, "source": string, "software_source": string},
+  "tech_confidence": "low"|"medium"|"high",
+  "org_structure": string,
+  "history_pov": {"history_summary": string, "pov_summary": string, "source": string},
+  "house_size": string,
+  "house_size_source": string,
+  "stage_count": string,
+  "season_cadence": string,
+  "season_cadence_source": string,
+  "fit_breakdown": [{"category": string, "score": number, "reasoning": string, "source": string}],
+  "propensity_breakdown": [{"category": string, "score": number, "reasoning": string, "source": string}],
+  "champion_leads": [{"name": string, "title": string, "email": string, "phone": string, "source": string}],
+  "contact": {"phone": string, "email": string, "source": string},
+  "switch_rationale": [{"text": string, "source": string}],
+  "verdict": string
+}`;
+
+  try{
+    const response = await fetch("/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4500,
+        messages: [{ role: "user", content: prompt }],
+        tools: [{ type: "web_search_20250305", name: "web_search" }]
+      })
+    });
+
+    if(!response.ok){
+      throw new Error("API request failed (" + response.status + ")");
+    }
+
+    const data = await response.json();
+    const textBlocks = (data.content || []).filter(b => b.type === "text").map(b => b.text);
+    const fullText = textBlocks.join("\n").trim();
+
+    const cleaned = fullText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+
+    const jsonStart = cleaned.indexOf('{');
+    const jsonEnd = cleaned.lastIndexOf('}');
+    if(jsonStart === -1 || jsonEnd === -1){
+      throw new Error("Could not parse a result from the research pass.");
+    }
+    const parsed = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1));
+    render(parsed);
+
+  }catch(err){
+    errorBox.textContent = "Couldn't complete the assessment: " + err.message + ". Try again, or use a more specific URL (their tickets or season page tends to work better than a generic homepage).";
+    errorBox.classList.add('active');
+  }finally{
+    clearInterval(tick);
+    loading.classList.remove('active');
+    goBtn.disabled = false;
+  }
+}
+
+goBtn.addEventListener('click', assess);
+urlInput.addEventListener('keydown', e => { if(e.key === 'Enter') assess(); });
+</script>
+</body>
+</html>
