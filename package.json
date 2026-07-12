@@ -1,0 +1,17 @@
+{
+  "name": "ots-fit-model",
+  "version": "1.0.0",
+  "description": "Venue research and Fit/Propensity scoring tool for On The Stage sales prioritization.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "dotenv": "^16.4.5"
+  },
+  "license": "MIT"
+}
